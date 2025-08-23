@@ -33,22 +33,43 @@ General‑purpose audio stacks are flexible but can introduce jitter. Copperline
 ```mermaid
 flowchart LR
   subgraph Apps
-    A1[App rings\n(memfd/shm)] -->|push/pull| MIX
-    A2[Tools/CLI] -->|JSON over UDS| CTRL
-    A3[ARexx-Next] --> CTRL
+    a1["App rings (memfd/shm)"];
+    a2["Tools / CLI"];
+    a3["ARexx-Next"];
   end
 
-  subgraph audiomixerd
-    CTRL[Control API] -->|build graph| MIX[Graph Scheduler]
-    MIX -->|period callback| DEV[Device Backend\n(ALSA/JACK)]
-    SRC1[Tone/File/App Source] --> MIX
-    FX1[Gain/Resample] --> MIX
-    MIX --> SINK1[Device Sink]
-    MIX --> REC[File Sink]
+  subgraph Audiomixerd
+    ctrl["Control API"];
+    mix["Graph Scheduler"];
+    dev["Device Backend (ALSA / JACK)"];
+    src1["Tone / File / App Source"];
+    fx1["Gain / Resample"];
+    sink1["Device Sink"];
+    rec["File Sink"];
   end
 
-  DEV -. clock/period .- MIX
+  a1 --> mix;
+  a2 --> ctrl;
+  a3 --> ctrl;
+  ctrl --> mix;
+  src1 --> mix;
+  fx1 --> mix;
+  mix --> dev;
+  mix --> sink1;
+  mix --> rec;
+  dev -.-> mix;
 ```
+
+<details>
+<summary>Text-only fallback (if Mermaid fails)</summary>
+
+```
+Apps (rings) -> Graph Scheduler
+Tools/ARexx -> Control API -> Graph Scheduler
+Sources (Tone/File/App) -> Graph Scheduler <- FX (Gain/Resample)
+Graph Scheduler -> { Device Sink, File Sink } ; Device Backend <-> Graph Scheduler (clock/period)
+```
+</details>
 
 - **Control plane**: JSON messages to create nodes and connections.  
 - **Data plane**: lock‑free ring buffers; scheduler runs per device period (e.g., 128 frames @ 48 kHz).  
